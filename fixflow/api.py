@@ -5,6 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import RedirectResponse
 
 from . import __version__
 from .agent import FixFlowAgent
@@ -20,6 +21,11 @@ app = FastAPI(
 @lru_cache(maxsize=1)
 def get_agent() -> FixFlowAgent:
     return FixFlowAgent()
+
+
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/health")
