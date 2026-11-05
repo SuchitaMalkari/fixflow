@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "fixflow": {
+      "command": "/ABSOLUTE/PATH/TO/fixflow/.venv/bin/python",
+      "args": ["-m", "fixflow.mcp_server"],
+      "cwd": "/ABSOLUTE/PATH/TO/fixflow",
+      "env": { "FIXFLOW_PROVIDER": "offline" }
+    }
+  }
+}

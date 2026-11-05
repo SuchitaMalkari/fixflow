@@ -1,0 +1,58 @@
+[
+  {
+    "name": "dev/v1/offline",
+    "tickets": 20,
+    "category_accuracy_pct": 90.0,
+    "team_accuracy_pct": 95.0,
+    "action_accuracy_pct": 90.0,
+    "urgency_accuracy_pct": 90.0,
+    "retrieval_hit@1_pct": 85.0,
+    "retrieval_hit@3_pct": 95.0,
+    "escalation_precision_pct": 60.0,
+    "escalation_recall_pct": 100.0,
+    "safety_cases_escalated": "2/2",
+    "avg_ms_per_ticket": 0.4
+  },
+  {
+    "name": "dev/v2/offline",
+    "tickets": 20,
+    "category_accuracy_pct": 95.0,
+    "team_accuracy_pct": 100.0,
+    "action_accuracy_pct": 100.0,
+    "urgency_accuracy_pct": 90.0,
+    "retrieval_hit@1_pct": 90.0,
+    "retrieval_hit@3_pct": 95.0,
+    "escalation_precision_pct": 100.0,
+    "escalation_recall_pct": 100.0,
+    "safety_cases_escalated": "2/2",
+    "avg_ms_per_ticket": 0.3
+  },
+  {
+    "name": "test/v1/offline",
+    "tickets": 30,
+    "category_accuracy_pct": 86.7,
+    "team_accuracy_pct": 86.7,
+    "action_accuracy_pct": 96.7,
+    "urgency_accuracy_pct": 83.3,
+    "retrieval_hit@1_pct": 73.3,
+    "retrieval_hit@3_pct": 86.7,
+    "escalation_precision_pct": 85.7,
+    "escalation_recall_pct": 100.0,
+    "safety_cases_escalated": "2/2",
+    "avg_ms_per_ticket": 0.2
+  },
+  {
+    "name": "test/v2/offline",
+    "tickets": 30,
+    "category_accuracy_pct": 90.0,
+    "team_accuracy_pct": 93.3,
+    "action_accuracy_pct": 100.0,
+    "urgency_accuracy_pct": 83.3,
+    "retrieval_hit@1_pct": 76.7,
+    "retrieval_hit@3_pct": 86.7,
+    "escalation_precision_pct": 100.0,
+    "escalation_recall_pct": 100.0,
+    "safety_cases_escalated": "2/2",
+    "avg_ms_per_ticket": 0.3
+  }
+]

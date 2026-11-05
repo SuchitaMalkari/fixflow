@@ -1,0 +1,14 @@
+name,aliases,install_via
+Microsoft Office,office|word|excel|powerpoint|outlook,Company Portal
+Microsoft Teams,teams,Company Portal
+Slack,slack,Company Portal
+Zoom,zoom,Company Portal
+Google Chrome,chrome,Company Portal
+Mozilla Firefox,firefox,Company Portal
+Visual Studio Code,vs code|vscode|visual studio code,Company Portal
+Python,python,Company Portal
+Git,git,Company Portal
+Docker Desktop,docker,Company Portal
+Postman,postman,Company Portal
+7-Zip,7zip|7-zip,Company Portal
+Adobe Acrobat Reader,acrobat|adobe reader,Company Portal

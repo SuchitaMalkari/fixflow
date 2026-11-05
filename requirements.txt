@@ -1,0 +1,6 @@
+pydantic>=2.7
+fastapi>=0.110
+uvicorn>=0.29
+mcp>=2.3,<3
+anthropic>=0.40
+openai>=1.40
