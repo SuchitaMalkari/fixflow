@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse
 
 from . import __version__
 from .agent import FixFlowAgent
@@ -23,9 +24,13 @@ def get_agent() -> FixFlowAgent:
     return FixFlowAgent()
 
 
-@app.get("/", include_in_schema=False)
-def root() -> RedirectResponse:
-    return RedirectResponse(url="/docs")
+INDEX_HTML = Path(__file__).parent / "static" / "index.html"
+
+
+@app.get("/", include_in_schema=False, response_class=HTMLResponse)
+def home() -> str:
+    """The demo page. The interactive API docs stay at /docs."""
+    return INDEX_HTML.read_text(encoding="utf-8")
 
 
 @app.get("/health")
