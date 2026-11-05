@@ -1,6 +1,6 @@
 # FixFlow: AI agent for IT-support triage
 
-[![CI](https://github.com/YOUR_GITHUB_USERNAME/fixflow/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_GITHUB_USERNAME/fixflow/actions/workflows/ci.yml)
+[![CI](https://github.com/SuchitaMalkari/fixflow/actions/workflows/ci.yml/badge.svg)](https://github.com/SuchitaMalkari/fixflow/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -71,7 +71,7 @@ flowchart LR
 ## Quick start
 
 ```bash
-git clone https://github.com/YOUR_GITHUB_USERNAME/fixflow.git
+git clone https://github.com/SuchitaMalkari/fixflow.git
 cd fixflow
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
