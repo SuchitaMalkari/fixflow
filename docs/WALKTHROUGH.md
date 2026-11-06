@@ -52,6 +52,9 @@ It's 30 synthetic tickets I wrote myself, so it's a sanity check, not a benchmar
 **"How do you stop the model from closing a dangerous case?"**
 Safety and security detection is deterministic and runs on every request. Its flags are OR-ed with the model's output, and safety always forces escalation. Test: `test_rules_override_model_on_safety`.
 
+**"Did the LLM ever do something you didn't expect?"**
+Yes. When I turned on the live LLM, I tested it and saw it add two troubleshooting steps that weren't in the help article, even though the prompt said to use only the article. So I added a groundedness check: each numbered step is compared with the article's words, and if a step isn't supported, FixFlow throws away the LLM reply and uses the article's steps instead, and logs it in the trace. It's a simple heuristic, so it can miss subtle cases. The next step would be an LLM-as-judge check or citing sentence-level sources.
+
 **"How would you scale this?"**
 Swap SQLite for Postgres, run the API behind a load balancer with several workers, cache retrieval, move to hybrid search with a vector index once the knowledge base grows, and log every resolution to build more eval data.
 

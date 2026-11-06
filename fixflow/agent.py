@@ -13,7 +13,7 @@ from .config import Settings
 from .kb import article_steps, load_kb
 from .llm import LLMTriager, build_client
 from .retrieval import Retriever
-from .schemas import CATEGORY_TO_TEAM, Resolution, SupportRequest, Triage
+from .schemas import CATEGORY_TO_TEAM, Resolution, SearchHit, SupportRequest, Triage
 from .tools import Store
 
 
@@ -120,7 +120,10 @@ class FixFlowAgent:
             ticket_id = ticket.id
         trace.append(f"act: {'ticket ' + ticket_id if ticket_id else 'no ticket needed'}")
 
+        self._grounding_note = None
         answer = self._answer(request, action, cited, warranty, ticket_id, team)
+        if self._grounding_note:
+            trace.append(f"grounding: LLM reply rejected ({self._grounding_note}), used the article's own steps")
         self.store.log_request(
             text=request.text, serial=request.serial, action=action, category=triage.category, team=team,
             urgency=triage.urgency, confidence=triage.confidence, ticket_id=ticket_id,
@@ -142,7 +145,11 @@ class FixFlowAgent:
         else:
             written = None
             if isinstance(self.triager, LLMTriager) and cited:
-                written = self.triager.write_answer(request.text, cited)
+                # Give the model the whole cited article, so the groundedness check compares against all of it.
+                article = [SearchHit(chunk=c, score=0.0) for c in self.chunks if c.article_id == cited[0].chunk.article_id]
+                written = self.triager.write_answer(request.text, article or cited)
+                if written is None and getattr(self.triager, "last_grounding_issue", None):
+                    self._grounding_note = self.triager.last_grounding_issue
             if written:
                 parts.append(written)
             elif cited:

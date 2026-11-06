@@ -36,9 +36,38 @@ Set each flag to true only when the text clearly supports it:
 Write a one-sentence neutral summary."""
 
 ANSWER_SYSTEM = """You are FixFlow, a friendly IT-support assistant. Answer using ONLY the knowledge-base sections
-provided. Give at most 5 short numbered steps, then one line saying what to do if the steps do not work.
+provided. Give at most 5 short numbered steps, each taken from the sections (you may shorten the wording, but never
+add a step that is not in them), then one line saying what to do if the steps do not work.
 Cite the article IDs you used in square brackets, e.g. [KB-004]. If the sections do not cover the problem,
 say so in one sentence instead of guessing."""
+
+_WORD = re.compile(r"[a-z0-9]+")
+_STOP = frozenset(
+    "a an and are as at be by can do for from has have if in into is it its of on or so that the then this to was "
+    "with you your not no off up out all any".split()
+)
+
+
+def _content_words(text: str) -> set[str]:
+    return {w[:5] for w in _WORD.findall(text.lower()) if w not in _STOP and len(w) > 2}
+
+
+def ungrounded_steps(answer: str, hits: list[SearchHit], min_overlap: float = 0.5) -> list[str]:
+    """Numbered steps in the answer whose words mostly do not appear in the retrieved sections.
+
+    LLMs sometimes add plausible advice that is not in the manual. Comparing word stems (first five letters)
+    against the source text is a cheap, explainable groundedness check.
+    """
+    source = set().union(*(_content_words(h.chunk.text) for h in hits)) if hits else set()
+    bad = []
+    for line in answer.splitlines():
+        step = re.match(r"\s*\d+[.)]\s*(.+)", line)
+        if not step:
+            continue
+        words = _content_words(step.group(1))
+        if words and len(words & source) / len(words) < min_overlap:
+            bad.append(step.group(1).strip())
+    return bad
 
 
 def _triage_tool_schema() -> dict[str, Any]:
@@ -162,11 +191,19 @@ class LLMTriager:
         return result.model_copy(update=updates)
 
     def write_answer(self, text: str, hits: list[SearchHit]) -> str | None:
+        """LLM-written reply, or None (the agent then uses the article's own steps) if the call fails or the
+        reply contains steps that are not in the knowledge base."""
+        self.last_grounding_issue = None
         try:
-            return self.client.complete_text(ANSWER_SYSTEM, f"Knowledge base:\n{_context(hits)}\n\nUser request:\n{text}")
+            answer = self.client.complete_text(ANSWER_SYSTEM, f"Knowledge base:\n{_context(hits)}\n\nUser request:\n{text}")
         except Exception as exc:
             self.last_error = f"{type(exc).__name__}: {exc}"
             return None
+        bad = ungrounded_steps(answer, hits)
+        if bad:
+            self.last_grounding_issue = f"{len(bad)} step(s) not found in the knowledge base"
+            return None
+        return answer
 
 
 def build_client(provider: str, model: str) -> LLMClient:

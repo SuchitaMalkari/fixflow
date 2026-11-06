@@ -50,7 +50,7 @@ Trace:
 | **REST API** | FastAPI service: `/triage`, `/activity` (issue board), `/tickets`, docs at `/docs` | `fixflow/api.py` |
 | **Demo web app** | Animated single-file front end: live agent pipeline, streaming trace, issue board fed from the database | `fixflow/static/index.html` |
 | **Evaluation** | 50 labeled tickets split into dev and held-out test sets; CI fails if quality drops | `fixflow/evals.py`, `data/eval/` |
-| **Production basics** | 39 tests, fake LLM clients, Docker image with health check, GitHub Actions CI | `tests/`, `Dockerfile`, `.github/` |
+| **Production basics** | 41 tests, fake LLM clients, Docker image with health check, GitHub Actions CI | `tests/`, `Dockerfile`, `.github/` |
 
 ## Architecture
 
@@ -154,6 +154,7 @@ Full output, including every miss, is in [`results/eval_offline.md`](results/eva
 - **Workflow, not a free-roaming agent.** Following Anthropic's [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents), the LLM handles language (classifying, writing answers) while routing is plain code. That makes every decision testable and explainable.
 - **Guardrails outside the model.** Safety and security rules are OR-ed with the model's output. A model mistake can make FixFlow more cautious but never less, and safety cases are never auto-closed.
 - **Structured outputs.** The model must return JSON matching the `Triage` schema (a forced tool call on Anthropic, JSON mode on OpenAI). Pydantic rejects anything invalid, and the agent falls back to the offline triager instead of failing.
+- **Groundedness check on LLM answers.** Testing the live demo showed the model sometimes adds plausible steps that are not in the manual, despite the prompt. Every numbered step is now compared with the cited article (word-stem overlap); if any step is not supported, the LLM reply is discarded, the article's own steps are used, and the trace records it. It is a cheap heuristic: it catches clearly invented steps, not subtle ones.
 - **BM25 instead of a vector database.** For about 40 short sections, BM25 is fast, transparent and needs no extra infrastructure. The `Retriever` interface makes it straightforward to add embeddings later.
 - **Confidence threshold.** Below 0.35 confidence the agent escalates rather than guesses. The threshold is configurable with `FIXFLOW_CONFIDENCE_THRESHOLD`.
 - **Evaluation in CI.** The build fails if test-set action accuracy drops below 90%, so a change that breaks quality cannot be merged unnoticed.

@@ -4,12 +4,13 @@ from types import SimpleNamespace
 
 from fixflow.agent import FixFlowAgent
 from fixflow.classify import OfflineTriager
-from fixflow.llm import AnthropicClient, LLMTriager, OpenAIClient, extract_json
+from fixflow.llm import AnthropicClient, LLMTriager, OpenAIClient, extract_json, ungrounded_steps
 from fixflow.schemas import SupportRequest
 
 
 class FakeClient:
-    def __init__(self, payload=None, error=None, answer="1. Do the thing [KB-004]"):
+    def __init__(self, payload=None, error=None,
+                 answer="1. Press Windows + Ctrl + Shift + B to restart the graphics driver. [KB-004]"):
         self.payload, self.error, self.answer, self.calls = payload, error, answer, 0
 
     def complete_json(self, system, user, schema):
@@ -58,7 +59,7 @@ def test_llm_writes_the_answer(settings, store):
     base = FixFlowAgent(settings, store=store)
     agent = FixFlowAgent(settings, store=store, triager=make(base, FakeClient(GOOD)))
     r = agent.handle(SupportRequest(text="my screen flickers"))
-    assert r.answer.startswith("1. Do the thing [KB-004]")
+    assert r.answer.startswith("1. Press Windows + Ctrl + Shift + B to restart the graphics driver. [KB-004]")
 
 
 def test_anthropic_client_reads_tool_call():
@@ -92,3 +93,20 @@ def test_openai_client_retries_without_json_mode():
 def test_extract_json():
     assert extract_json('{"a": 1}') == {"a": 1}
     assert extract_json('here you go: {"a": {"b": 2}} thanks') == {"a": {"b": 2}}
+
+
+def test_groundedness_check_flags_invented_steps(agent):
+    article = [h for h in agent.retriever.search("screen flickering", k=50) if h.chunk.article_id == "KB-004"]
+    grounded = "1. Press Windows + Ctrl + Shift + B to restart the graphics driver.\n2. Update the graphics driver and BIOS."
+    invented = grounded + "\n3. Disable hardware acceleration in Chrome settings menu."
+    assert ungrounded_steps(grounded, article) == []
+    assert ungrounded_steps(invented, article) == ["Disable hardware acceleration in Chrome settings menu."]
+
+
+def test_ungrounded_llm_answer_is_replaced_by_article_steps(settings, store):
+    base = FixFlowAgent(settings, store=store)
+    invented = "1. Reinstall your operating system from a USB stick.\n2. Buy a new monitor cable online. [KB-004]"
+    agent = FixFlowAgent(settings, store=store, triager=make(base, FakeClient(GOOD, answer=invented)))
+    r = agent.handle(SupportRequest(text="my screen flickers"))
+    assert "Windows + Ctrl + Shift + B" in r.answer and "USB stick" not in r.answer
+    assert any(t.startswith("grounding:") for t in r.trace)
