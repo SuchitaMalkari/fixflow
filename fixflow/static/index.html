@@ -561,7 +561,7 @@ footer a:hover{color:var(--ink)}
       if (ring) ring.style.strokeDashoffset = String(113 - (113 * conf) / 100);
       countTo($("confv"), conf);
     });
-    typeAnswer($("ans"), r.answer || "");
+    typeAnswer($("ans"), (r.answer || "").replace(/\*\*(.+?)\*\*/g, "$1").replace(/[ \t]+\n/g, "\n"));
     if (r.action === "self_serve") {
       $("fb-yes").onclick = () => { $("fb").innerHTML = '<span class="done">Great. Marked as resolved, no ticket needed.</span>'; };
       $("fb-no").onclick = () => { ta.value = lastText + ". I already tried these steps and it is still not working."; run(); };
