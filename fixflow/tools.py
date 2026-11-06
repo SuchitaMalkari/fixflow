@@ -6,6 +6,7 @@ The same functions are used by the agent, the REST API and the MCP server, so be
 from __future__ import annotations
 
 import csv
+import json
 import sqlite3
 import threading
 import uuid
@@ -22,6 +23,10 @@ CREATE TABLE IF NOT EXISTS devices (
 CREATE TABLE IF NOT EXISTS tickets (
     id TEXT PRIMARY KEY, created_at TEXT, status TEXT, team TEXT, category TEXT,
     urgency TEXT, summary TEXT, request_text TEXT, serial TEXT
+);
+CREATE TABLE IF NOT EXISTS requests_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, text TEXT, serial TEXT, action TEXT,
+    category TEXT, team TEXT, urgency TEXT, confidence REAL, ticket_id TEXT, reasons TEXT, trace TEXT
 );
 """
 
@@ -105,6 +110,41 @@ class Store:
             serial=serial,
             status="needs_human",
         )
+
+    # ---- request log: every request the agent handled, for the issue board -------------------------
+
+    def log_request(self, *, text: str, serial: str | None, action: str, category: str, team: str,
+                    urgency: str, confidence: float, ticket_id: str | None,
+                    reasons: list[str] | None = None, trace: list[str] | None = None) -> None:
+        with self._lock, self.conn:
+            self.conn.execute(
+                "INSERT INTO requests_log (created_at, text, serial, action, category, team, urgency, confidence, ticket_id, "
+                "reasons, trace) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (datetime.now(timezone.utc).isoformat(timespec="seconds"), text[:500], serial, action,
+                 category, team, urgency, confidence, ticket_id, json.dumps(reasons or []), json.dumps(trace or [])),
+            )
+
+    def recent_requests(self, limit: int = 20) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM requests_log ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+        out = []
+        for r in rows:
+            item = dict(r)
+            item["reasons"] = json.loads(item["reasons"] or "[]")
+            item["trace"] = json.loads(item["trace"] or "[]")
+            out.append(item)
+        return out
+
+    def request_stats(self) -> dict:
+        def counts(column: str) -> dict[str, int]:
+            rows = self.conn.execute(
+                f"SELECT {column} AS k, COUNT(*) AS n FROM requests_log GROUP BY {column} ORDER BY n DESC"
+            ).fetchall()
+            return {r["k"]: r["n"] for r in rows}
+
+        total = self.conn.execute("SELECT COUNT(*) FROM requests_log").fetchone()[0]
+        return {"total": total, "by_action": counts("action"), "by_category": counts("category"), "by_team": counts("team")}
 
     def list_tickets(self, limit: int = 50) -> list[Ticket]:
         rows = self.conn.execute(

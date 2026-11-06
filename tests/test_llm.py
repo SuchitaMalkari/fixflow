@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from fixflow.agent import FixFlowAgent
 from fixflow.classify import OfflineTriager
-from fixflow.llm import AnthropicClient, LLMTriager, OpenAIClient
+from fixflow.llm import AnthropicClient, LLMTriager, OpenAIClient, extract_json
 from fixflow.schemas import SupportRequest
 
 
@@ -72,3 +72,23 @@ def test_openai_client_parses_json():
     sdk = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(
         create=lambda **kw: SimpleNamespace(choices=[SimpleNamespace(message=msg)]))))
     assert OpenAIClient("m", client=sdk).complete_json("s", "u", {}) == {"category": "display"}
+
+
+def test_openai_client_retries_without_json_mode():
+    calls = []
+
+    def create(**kw):
+        calls.append(kw)
+        if "response_format" in kw:
+            raise ValueError("response_format not supported")
+        msg = SimpleNamespace(content='Sure! ```json\n{"category": "display"}\n```')
+        return SimpleNamespace(choices=[SimpleNamespace(message=msg)])
+
+    sdk = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    assert OpenAIClient("m", client=sdk).complete_json("s", "u", {}) == {"category": "display"}
+    assert len(calls) == 2
+
+
+def test_extract_json():
+    assert extract_json('{"a": 1}') == {"a": 1}
+    assert extract_json('here you go: {"a": {"b": 2}} thanks') == {"a": {"b": 2}}

@@ -55,3 +55,11 @@ def test_trace_records_every_step(agent):
     r = handle(agent, "battery drains fast", serial="NV5T1R43")
     steps = [s.split(":")[0].split("[")[0] for s in r.trace]
     assert steps == ["retrieve", "triage", "check_warranty", "decide", "act"]
+
+
+def test_every_request_is_logged(agent):
+    handle(agent, "screen keeps flickering when I scroll")
+    handle(agent, "there is smoke coming from the vents")
+    rows = agent.store.recent_requests()
+    assert [r["action"] for r in rows] == ["escalate", "self_serve"]
+    assert rows[0]["reasons"] and rows[0]["trace"][0].startswith("retrieve")

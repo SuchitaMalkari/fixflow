@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any, Protocol
 
 from .classify import OfflineTriager
@@ -91,7 +92,21 @@ class AnthropicClient:
         return "".join(getattr(b, "text", "") for b in response.content).strip()
 
 
+def extract_json(text: str) -> dict[str, Any]:
+    """Pull the first JSON object out of a model reply, tolerating ```json fences or extra words around it."""
+    text = (text or "").strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if not match:
+            raise ValueError("model reply contained no JSON object") from None
+        return json.loads(match.group(0))
+
+
 class OpenAIClient:
+    """Works with OpenAI and with OpenAI-compatible providers (for example Groq or Gemini) via OPENAI_BASE_URL."""
+
     def __init__(self, model: str, client: Any | None = None) -> None:
         if client is None:
             import openai
@@ -100,16 +115,18 @@ class OpenAIClient:
         self.client, self.model = client, model
 
     def complete_json(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
-        response = self.client.chat.completions.create(
-            model=self.model,
-            temperature=0,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": system + "\nReply with a JSON object matching this schema:\n" + json.dumps(schema)},
-                {"role": "user", "content": user},
-            ],
-        )
-        return json.loads(response.choices[0].message.content)
+        messages = [
+            {"role": "system", "content": system + "\nReply with ONLY a JSON object matching this schema:\n" + json.dumps(schema)},
+            {"role": "user", "content": user},
+        ]
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model, temperature=0, response_format={"type": "json_object"}, messages=messages,
+            )
+        except Exception:
+            # Some OpenAI-compatible providers do not support JSON mode: ask again without it.
+            response = self.client.chat.completions.create(model=self.model, temperature=0, messages=messages)
+        return extract_json(response.choices[0].message.content)
 
     def complete_text(self, system: str, user: str) -> str:
         response = self.client.chat.completions.create(

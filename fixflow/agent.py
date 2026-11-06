@@ -121,6 +121,11 @@ class FixFlowAgent:
         trace.append(f"act: {'ticket ' + ticket_id if ticket_id else 'no ticket needed'}")
 
         answer = self._answer(request, action, cited, warranty, ticket_id, team)
+        self.store.log_request(
+            text=request.text, serial=request.serial, action=action, category=triage.category, team=team,
+            urgency=triage.urgency, confidence=triage.confidence, ticket_id=ticket_id,
+            reasons=reasons, trace=trace,
+        )
         return Resolution(
             action=action, category=triage.category, team=team, urgency=triage.urgency,  # type: ignore[arg-type]
             confidence=triage.confidence, answer=answer,

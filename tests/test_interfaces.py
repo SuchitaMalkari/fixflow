@@ -34,12 +34,16 @@ def test_api(monkeypatch, agent):
     monkeypatch.setattr(api, "get_agent", lambda: agent)
     client = TestClient(api.app)
     assert client.get("/health").json()["status"] == "ok"
+    home = client.get("/")
+    assert home.status_code == 200 and "FixFlow" in home.text
     r = client.post("/triage", json={"text": "I dropped my laptop and the screen cracked"})
     assert r.status_code == 200 and r.json()["action"] == "ticket"
     ticket_id = r.json()["ticket_id"]
     assert client.get(f"/tickets/{ticket_id}").status_code == 200
     assert client.get("/tickets/FF-NOPE").status_code == 404
     assert client.post("/triage", json={"text": ""}).status_code == 422
+    board = client.get("/activity").json()
+    assert board["stats"]["total"] >= 1 and board["recent"][0]["action"] == "ticket"
 
 
 def test_eval_meets_quality_bar():

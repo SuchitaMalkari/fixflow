@@ -7,250 +7,682 @@
 <meta name="description" content="FixFlow reads an IT-support request and decides: answer it, open a ticket, or hand it to a person.">
 <style>
 :root{
-  --bg:#f6f5f1; --surface:#ffffff; --ink:#15171c; --muted:#5d6370; --line:#e3e1da;
-  --accent:#3b5bdb; --accent-soft:#e8edff;
-  --ok:#1f8a4c; --ok-soft:#e3f4ea; --warn:#b26a00; --warn-soft:#fdf0dc; --bad:#c2352b; --bad-soft:#fbe6e4;
-  --radius:16px; --shadow:0 1px 2px rgba(20,22,28,.04),0 8px 24px rgba(20,22,28,.06);
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --bg:#07080c; --surface:rgba(20,23,33,.72); --surface-solid:#141721; --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
+  --ink:#f1f3f8; --muted:#9097a6; --dim:#646b7a;
+  --a1:#7c8cff; --a2:#b37cff; --a3:#3ee0c4;
+  --ok:#3ddc8a; --warn:#ffb547; --bad:#ff5d57;
+  --radius:20px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.2,.8,.2,1);
 }
-@media (prefers-color-scheme:dark){:root{
-  --bg:#0f1115; --surface:#171a21; --ink:#eceef3; --muted:#9aa1ae; --line:#272b35;
-  --accent:#7d95ff; --accent-soft:#1e2540;
-  --ok:#4cc483; --ok-soft:#12291c; --warn:#f0a83c; --warn-soft:#2d2210; --bad:#ff6b5e; --bad-soft:#331816;
-  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
-}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
-a{color:inherit}
-.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
-nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
-.logo{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.01em;font-size:18px;text-decoration:none}
-.logo-mark{width:30px;height:30px;border-radius:9px;background:var(--ink);display:grid;place-items:center}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+::selection{background:var(--a1);color:#fff}
+
+/* ---------- animated background ---------- */
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.42;will-change:transform}
+.b1{width:620px;height:620px;background:var(--a1);top:-180px;left:-140px;animation:drift1 22s ease-in-out infinite}
+.b2{width:520px;height:520px;background:var(--a2);top:10%;right:-160px;animation:drift2 26s ease-in-out infinite}
+.b3{width:460px;height:460px;background:var(--a3);bottom:-200px;left:30%;opacity:.22;animation:drift3 30s ease-in-out infinite}
+@keyframes drift1{50%{transform:translate(160px,120px) scale(1.15)}}
+@keyframes drift2{50%{transform:translate(-140px,160px) scale(.9)}}
+@keyframes drift3{50%{transform:translate(120px,-140px) scale(1.2)}}
+.grid-bg{position:absolute;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:56px 56px;mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,#000 30%,transparent 75%);-webkit-mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,#000 30%,transparent 75%)}
+
+.wrap{max-width:1140px;margin:0 auto;padding:0 20px}
+
+/* ---------- nav ---------- */
+nav{position:sticky;top:0;z-index:20;backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);background:rgba(7,8,12,.55);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;letter-spacing:-.01em}
+.logo-mark{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--a1),var(--a2));display:grid;place-items:center;box-shadow:0 0 24px rgba(124,140,255,.45)}
 .logo-mark svg{width:18px;height:18px}
-.nav-links{display:flex;gap:6px}
-.nav-links a{text-decoration:none;color:var(--muted);font-size:14px;padding:8px 12px;border-radius:10px}
-.nav-links a:hover{background:var(--surface);color:var(--ink)}
-header.hero{padding:48px 0 28px;max-width:760px}
-.eyebrow{display:inline-flex;gap:8px;align-items:center;font-size:13px;color:var(--accent);background:var(--accent-soft);padding:6px 12px;border-radius:999px;font-weight:600}
-h1{font-size:clamp(34px,5.4vw,58px);line-height:1.04;letter-spacing:-.035em;margin:18px 0 16px;font-weight:750}
-h1 em{font-style:normal;color:var(--accent)}
-.lede{font-size:clamp(16px,2vw,19px);color:var(--muted);max-width:640px;margin:0}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:28px 0 64px;align-items:start}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-.console{padding:22px}
-label.lbl{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px}
-textarea,input{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px;outline:none;transition:border-color .15s,box-shadow .15s}
-textarea{min-height:120px;resize:vertical}
-textarea:focus,input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
-.row{display:flex;gap:12px;margin-top:12px;align-items:end}
-.row .serial{flex:1}
-input{padding:12px 14px;font-family:var(--mono);font-size:14px;text-transform:uppercase}
-button.go{appearance:none;border:0;background:var(--ink);color:var(--bg);font:inherit;font-weight:650;padding:13px 22px;border-radius:12px;cursor:pointer;white-space:nowrap;transition:transform .1s,opacity .15s}
-button.go:hover{opacity:.9}button.go:active{transform:scale(.98)}
-button.go:disabled{opacity:.5;cursor:wait}
+.logo-mark path{stroke-dasharray:40;stroke-dashoffset:40;animation:draw 1.4s var(--ease) .2s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.nav-links{display:flex;gap:4px;align-items:center}
+.nav-links a{color:var(--muted);font-size:14px;padding:8px 12px;border-radius:10px;transition:color .2s,background .2s}
+.nav-links a:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+
+/* ---------- hero ---------- */
+.hero{padding:96px 0 40px;text-align:center}
+h1{font-size:clamp(40px,7.4vw,84px);line-height:1;letter-spacing:-.045em;font-weight:800;margin:0 auto 22px;max-width:980px}
+h1 .grad{background:linear-gradient(90deg,var(--a1),var(--a2),var(--a3),var(--a1));background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shine 8s linear infinite}
+@keyframes shine{to{background-position:300% 0}}
+.lede{font-size:clamp(16px,2.1vw,20px);color:var(--muted);max-width:660px;margin:0 auto}
+.cta{display:flex;gap:12px;justify-content:center;margin-top:34px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;font-weight:650;padding:14px 22px;border-radius:14px;font-size:15px;transition:transform .2s var(--ease),box-shadow .2s,background .2s;border:0;cursor:pointer;font-family:inherit}
+.btn-primary{background:linear-gradient(135deg,var(--a1),var(--a2));color:#fff;box-shadow:0 10px 30px -8px rgba(124,140,255,.7)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 16px 40px -10px rgba(124,140,255,.9)}
+.btn-ghost{background:rgba(255,255,255,.05);color:var(--ink);border:1px solid var(--line2);padding:10px 16px;font-size:14px}
+.btn-ghost:hover{background:rgba(255,255,255,.1);transform:translateY(-1px)}
+.btn .arrow{transition:transform .2s var(--ease)}
+.btn:hover .arrow{transform:translateX(3px)}
+
+/* entrance */
+.rise{opacity:0;transform:translateY(18px);animation:rise .9s var(--ease) forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+.d2{animation-delay:.1s}.d3{animation-delay:.25s}.d4{animation-delay:.4s}.d5{animation-delay:.55s}
+
+/* ---------- ticker ---------- */
+.ticker{margin:56px -20px 0;overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.track{display:flex;gap:12px;width:max-content;animation:marquee 46s linear infinite}
+.ticker:hover .track{animation-play-state:paused}
+@keyframes marquee{to{transform:translateX(-50%)}}
+.tk{display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:14px;color:#cfd4e2;white-space:nowrap}
+.pill{font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.p-self_serve{background:rgba(61,220,138,.14);color:var(--ok)}
+.p-ticket{background:rgba(255,181,71,.14);color:var(--warn)}
+.p-escalate{background:rgba(255,93,87,.15);color:var(--bad)}
+
+/* ---------- cards ---------- */
+.card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);overflow:hidden}
+.card.spot::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:radial-gradient(420px circle at var(--mx,50%) var(--my,-20%),rgba(124,140,255,.14),transparent 45%)}
+.tilt{transform-style:preserve-3d;transition:transform .25s var(--ease)}
+
+/* ---------- demo ---------- */
+#demo{scroll-margin-top:90px}
+.demo{display:grid;grid-template-columns:5fr 6fr;gap:20px;margin:48px 0 110px;align-items:start}
+.console{padding:24px}
+.lbl{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px}
+textarea,select{width:100%;font:inherit;color:var(--ink);background:rgba(0,0,0,.35);border:1px solid var(--line2);border-radius:14px;padding:15px;outline:none;transition:border-color .2s,box-shadow .2s}
+textarea{min-height:130px;resize:vertical;font-size:16px}
+textarea::placeholder{color:var(--dim)}
+textarea:focus,select:focus{border-color:var(--a1);box-shadow:0 0 0 4px rgba(124,140,255,.18)}
+select{appearance:none;-webkit-appearance:none;padding:13px 40px 13px 15px;font-size:14.5px;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239097a6' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;background-size:16px}
+select option{background:#141721;color:var(--ink)}
+.row{display:flex;gap:12px;margin-top:14px;align-items:end}
+.row .device{flex:1}
+.hint{font-size:12px;color:var(--dim);margin:6px 0 0}
+#go{min-width:132px;justify-content:center;height:50px;margin-bottom:24px}
+#go:disabled{opacity:.6;cursor:progress;transform:none}
 .chips-lbl{font-size:13px;color:var(--muted);margin:20px 0 10px;font-weight:600}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{appearance:none;font:inherit;font-size:13px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:7px 12px;border-radius:999px;cursor:pointer;transition:border-color .15s,background .15s}
-.chip:hover{border-color:var(--accent);background:var(--accent-soft)}
-.result{padding:22px;min-height:100%}
-.empty{display:grid;place-items:center;text-align:center;color:var(--muted);min-height:360px;padding:20px}
-.empty svg{width:44px;height:44px;opacity:.5;margin-bottom:12px}
-.decision{display:flex;align-items:center;gap:14px;padding:16px;border-radius:12px;margin-bottom:18px}
-.decision .icon{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;flex:none;color:#fff;font-weight:800}
-.decision h2{margin:0;font-size:20px;letter-spacing:-.01em}
+.chip{font:inherit;font-size:13px;border:1px solid var(--line2);background:rgba(255,255,255,.03);color:var(--ink);padding:8px 13px;border-radius:999px;cursor:pointer;transition:transform .2s var(--ease),border-color .2s,background .2s}
+.chip:hover{transform:translateY(-2px);border-color:var(--a1);background:rgba(124,140,255,.12)}
+.note{font-size:12.5px;color:var(--dim);margin:16px 0 0}
+
+/* pipeline */
+.panel{padding:22px}
+.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.panel-head b{font-size:14px;letter-spacing:.02em}
+.status{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.status i{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+.status.live i{background:var(--a3);animation:pulse 1.4s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(62,224,196,.6)}70%{box-shadow:0 0 0 10px rgba(62,224,196,0)}100%{box-shadow:0 0 0 0 rgba(62,224,196,0)}}
+.pipe{display:grid;grid-template-columns:repeat(5,1fr);position:relative;margin-bottom:18px}
+.pipe::before{content:"";position:absolute;top:21px;left:10%;right:10%;height:2px;background:var(--line2)}
+.beam{position:absolute;top:21px;left:10%;height:2px;width:0;background:linear-gradient(90deg,var(--a1),var(--a2),var(--a3));box-shadow:0 0 12px var(--a1);transition:width .45s var(--ease)}
+.node{display:flex;flex-direction:column;align-items:center;gap:8px;position:relative;z-index:1}
+.dot{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--surface-solid);border:1px solid var(--line2);color:var(--dim);transition:all .35s var(--ease)}
+.dot svg{width:20px;height:20px}
+.node span{font-size:12px;color:var(--dim);font-weight:600;transition:color .3s}
+.node.run .dot{border-color:var(--a1);color:var(--a1);box-shadow:0 0 0 6px rgba(124,140,255,.15),0 0 24px rgba(124,140,255,.5);animation:bob 1s ease-in-out infinite}
+.node.run span{color:var(--ink)}
+.node.done .dot{background:linear-gradient(135deg,var(--a1),var(--a2));border-color:transparent;color:#fff;transform:scale(1.04)}
+.node.done span{color:var(--ink)}
+.node.skip .dot{opacity:.45;border-style:dashed}
+@keyframes bob{50%{transform:translateY(-3px)}}
+.term{background:rgba(0,0,0,.45);border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-family:var(--mono);font-size:12.5px;min-height:132px;max-height:220px;overflow:auto;color:#c9cede}
+.term .ln{opacity:0;transform:translateX(-6px);animation:ln .35s var(--ease) forwards;padding:2px 0;word-break:break-word}
+@keyframes ln{to{opacity:1;transform:none}}
+.term .k{color:var(--a3)}.term .p{color:var(--dim)}
+.caret{display:inline-block;width:7px;height:14px;background:var(--a3);vertical-align:-2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* result */
+.result{margin-top:16px;display:none}
+.result.show{display:block}
+.decision{display:flex;align-items:center;gap:16px;padding:18px;border-radius:16px;border:1px solid;opacity:0;transform:translateY(12px) scale(.98);animation:pop .55s var(--ease) forwards}
+@keyframes pop{to{opacity:1;transform:none}}
+.decision .icon{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;flex:none;color:#0b0c10}
+.decision .icon svg{width:22px;height:22px}
+.decision h2{margin:0;font-size:21px;letter-spacing:-.015em}
 .decision p{margin:2px 0 0;font-size:14px;color:var(--muted)}
-.d-self_serve{background:var(--ok-soft)}.d-self_serve .icon{background:var(--ok)}
-.d-ticket{background:var(--warn-soft)}.d-ticket .icon{background:var(--warn)}
-.d-escalate{background:var(--bad-soft)}.d-escalate .icon{background:var(--bad)}
-.facts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
-.fact{border:1px solid var(--line);border-radius:12px;padding:10px 12px}
-.fact span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
-.fact b{font-size:14px;font-weight:650;word-break:break-word}
-.meter{height:5px;background:var(--line);border-radius:9px;margin-top:6px;overflow:hidden}
-.meter i{display:block;height:100%;background:var(--accent);border-radius:9px}
-h3{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:18px 0 8px}
-.reasons{margin:0;padding-left:18px}.reasons li{margin:3px 0}
-.answer{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:14.5px}
-.tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-.tag{font-family:var(--mono);font-size:12px;padding:4px 9px;border-radius:7px;background:var(--accent-soft);color:var(--accent)}
-details{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
-summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--muted)}
-.trace{font-family:var(--mono);font-size:12.5px;margin:10px 0 0;padding:0;list-style:none}
-.trace li{padding:7px 0;border-bottom:1px dashed var(--line);word-break:break-word}
-.trace li b{color:var(--accent);font-weight:600}
-.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:360px;color:var(--muted);text-align:center;gap:14px}
-.spinner{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.err{color:var(--bad);background:var(--bad-soft);padding:14px;border-radius:12px;font-size:14px}
-section.block{margin:0 0 72px}
-.block h2.sec{font-size:clamp(24px,3vw,32px);letter-spacing:-.025em;margin:0 0 8px}
-.block p.sub{color:var(--muted);margin:0 0 24px;max-width:620px}
-.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;counter-reset:s}
-.step{padding:18px;position:relative}
-.step::before{counter-increment:s;content:counter(s);display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:14px;margin-bottom:12px}
-.step b{display:block;margin-bottom:4px}
-.step span{font-size:14px;color:var(--muted)}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.stat{padding:22px}
-.stat b{display:block;font-size:clamp(28px,4vw,40px);letter-spacing:-.03em;font-weight:750}
+.d-self_serve{background:rgba(61,220,138,.08);border-color:rgba(61,220,138,.35)}.d-self_serve .icon{background:var(--ok);box-shadow:0 0 28px rgba(61,220,138,.55)}
+.d-ticket{background:rgba(255,181,71,.08);border-color:rgba(255,181,71,.35)}.d-ticket .icon{background:var(--warn);box-shadow:0 0 28px rgba(255,181,71,.55)}
+.d-escalate{background:rgba(255,93,87,.09);border-color:rgba(255,93,87,.4);animation:pop .55s var(--ease) forwards,alarm 2.2s ease-in-out .6s infinite}
+.d-escalate .icon{background:var(--bad);box-shadow:0 0 28px rgba(255,93,87,.6)}
+@keyframes alarm{50%{box-shadow:0 0 0 1px rgba(255,93,87,.5),0 0 36px -6px rgba(255,93,87,.55)}}
+.facts{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;margin:14px 0 4px}
+.fact{border:1px solid var(--line);border-radius:14px;padding:11px 13px;background:rgba(255,255,255,.02);opacity:0;animation:rise .5s var(--ease) forwards}
+.fact span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);font-weight:700}
+.fact b{font-size:14px;font-weight:650}
+.ring{display:flex;align-items:center;gap:10px}
+.ring svg{width:46px;height:46px;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:5}
+.ring .track{stroke:var(--line2)}
+.ring .val{stroke:url(#rg);stroke-linecap:round;stroke-dasharray:113;stroke-dashoffset:113;transition:stroke-dashoffset 1.2s var(--ease)}
+h3{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin:18px 0 8px}
+.reasons{margin:0;padding:0;list-style:none}
+.reasons li{padding:8px 12px;border-left:2px solid var(--a1);background:rgba(124,140,255,.06);border-radius:0 10px 10px 0;margin:6px 0;font-size:14.5px;opacity:0;animation:ln .4s var(--ease) forwards}
+.answer{white-space:pre-wrap;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:14px;padding:15px;font-size:14.5px;min-height:60px}
+.tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.tag{font-family:var(--mono);font-size:12px;padding:5px 10px;border-radius:8px;background:rgba(124,140,255,.12);color:#c3cbff;border:1px solid rgba(124,140,255,.25)}
+.feedback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:16px;border-top:1px solid var(--line);opacity:0;animation:rise .5s var(--ease) 1.2s forwards}
+.feedback span{font-size:14px;color:var(--muted);margin-right:4px}
+.feedback .done{font-size:14px;color:var(--ok)}
+.err{color:#ffd2d0;background:rgba(255,93,87,.1);border:1px solid rgba(255,93,87,.35);padding:14px;border-radius:14px;font-size:14px;margin-top:16px}
+
+/* ---------- sections ---------- */
+section.block{margin:0 0 120px}
+.sec-head{text-align:center;max-width:680px;margin:0 auto 40px}
+.kicker{font-family:var(--mono);font-size:12px;color:var(--a3);letter-spacing:.14em;text-transform:uppercase}
+.sec-head h2{font-size:clamp(28px,4vw,44px);letter-spacing:-.035em;margin:10px 0 12px;line-height:1.08}
+.sec-head p{color:var(--muted);margin:0}
+
+/* issue board */
+#board{scroll-margin-top:90px}
+.board{display:grid;grid-template-columns:4fr 7fr;gap:20px}
+.board .card{padding:22px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{border:1px solid var(--line);border-radius:14px;padding:14px;background:rgba(255,255,255,.02)}
+.tile span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);font-weight:700}
+.tile b{font-size:30px;font-weight:800;letter-spacing:-.03em}
+.tile.t-ok b{color:var(--ok)}.tile.t-warn b{color:var(--warn)}.tile.t-bad b{color:var(--bad)}
+.bars{margin-top:18px}
+.bar{display:grid;grid-template-columns:120px 1fr 28px;gap:10px;align-items:center;font-size:13px;margin:8px 0;color:var(--muted)}
+.bar .fill{height:8px;border-radius:9px;background:var(--line);overflow:hidden}
+.bar .fill i{display:block;height:100%;width:0;border-radius:9px;background:linear-gradient(90deg,var(--a1),var(--a2));transition:width 1s var(--ease)}
+.bar b{color:var(--ink);text-align:right;font-weight:650}
+.feed-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.feed-head b{font-size:14px}
+.feed-sub{font-size:12.5px;color:var(--dim);margin:0 0 8px}
+.feed{list-style:none;margin:0;padding:0;max-height:430px;overflow:auto}
+.feed li{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 8px;border-bottom:1px solid var(--line);border-radius:10px;cursor:pointer;transition:background .15s}
+.feed li:hover{background:rgba(255,255,255,.04)}
+.feed li.new{animation:flash 1.6s var(--ease)}
+@keyframes flash{0%{background:rgba(124,140,255,.22);transform:translateX(-8px)}100%{background:transparent;transform:none}}
+.feed .txt{font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.feed .meta{font-size:12px;color:var(--dim);margin-top:2px}
+.feed .when{font-family:var(--mono);font-size:11.5px;color:var(--dim);white-space:nowrap}
+.privacy{font-size:12.5px;color:var(--dim);margin:14px 0 0}
+
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .25s;z-index:40}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(460px,100%);background:#0f1118;border-left:1px solid var(--line2);z-index:41;transform:translateX(100%);transition:transform .4s var(--ease);display:flex;flex-direction:column}
+.drawer.on{transform:none}
+.d-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line)}
+.d-head b{font-size:16px}
+.x{width:34px;height:34px;border-radius:10px;border:1px solid var(--line2);background:none;color:var(--muted);display:grid;place-items:center;cursor:pointer}
+.x:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+.x svg{width:16px;height:16px}
+.d-body{padding:20px 22px 30px;overflow-y:auto}
+.d-body h4{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin:22px 0 10px}
+.d-body h4:first-child{margin-top:0}
+.quote{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14.5px}
+.d-meta{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.d-meta span{display:block;font-size:12px;color:var(--dim)}
+.d-meta b{font-size:14px;font-weight:600}
+.conf{height:5px;background:var(--line2);border-radius:9px;overflow:hidden;margin-top:6px}
+.conf i{display:block;height:100%;background:linear-gradient(90deg,var(--a1),var(--a3));border-radius:9px}
+.timeline{list-style:none;margin:0;padding:0;position:relative}
+.timeline::before{content:"";position:absolute;left:11px;top:6px;bottom:10px;width:2px;background:var(--line2)}
+.timeline li{position:relative;padding:0 0 16px 36px;opacity:0;animation:ln .4s var(--ease) forwards}
+.timeline li::before{content:"";position:absolute;left:4px;top:3px;width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg,var(--a1),var(--a2));box-shadow:0 0 12px rgba(124,140,255,.5)}
+.timeline b{display:block;font-size:14px}
+.timeline span{font-size:13px;color:var(--muted);word-break:break-word}
+
+.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.step{padding:22px 20px}
+.step:hover{border-color:rgba(124,140,255,.4)}
+.step .ic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:rgba(124,140,255,.12);color:var(--a1);margin-bottom:14px}
+.step .ic svg{width:21px;height:21px}
+.step .n{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.step b{display:block;margin:2px 0 6px;font-size:16px}
+.step p{margin:0;font-size:14px;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.stat{padding:26px 22px}
+.stat b{display:block;font-size:clamp(34px,4.6vw,52px);letter-spacing:-.04em;font-weight:800;background:linear-gradient(180deg,#fff,#a9b0c2);-webkit-background-clip:text;background-clip:text;color:transparent}
 .stat span{color:var(--muted);font-size:14px}
-.note{font-size:13px;color:var(--muted);margin-top:14px}
-footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--muted);font-size:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
-@media (max-width:860px){.grid{grid-template-columns:1fr}.steps{grid-template-columns:1fr 1fr}.stats{grid-template-columns:1fr 1fr}.facts{grid-template-columns:1fr 1fr}}
-@media (max-width:480px){.steps{grid-template-columns:1fr}.row{flex-direction:column;align-items:stretch}.nav-links a.hide-sm{display:none}}
+.fine{text-align:center;font-size:13px;color:var(--dim);margin-top:18px}
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.reveal.in{opacity:1;transform:none}
+footer{border-top:1px solid var(--line);padding:30px 0 44px;color:var(--dim);font-size:14px}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+footer a:hover{color:var(--ink)}
+
+@media (max-width:900px){.demo{grid-template-columns:1fr}.steps{grid-template-columns:1fr 1fr}.stats{grid-template-columns:1fr 1fr}.facts{grid-template-columns:1fr 1fr}.board{grid-template-columns:1fr}}
+@media (max-width:520px){.hero{padding-top:64px}.row{flex-direction:column;align-items:stretch}#go{width:100%;margin-bottom:0}.steps{grid-template-columns:1fr}.node span{font-size:10.5px}.dot{width:38px;height:38px}.pipe::before,.beam{top:18px}.nav-links a.hide{display:none}.bar{grid-template-columns:96px 1fr 24px}.feed li{grid-template-columns:auto 1fr}.feed .when{display:none}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}.reveal{opacity:1;transform:none}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <nav>
-    <a class="logo" href="/">
-      <span class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h5l3-6 3 12 3-6h2"/></svg></span>
-      FixFlow
-    </a>
+<div class="bg" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="grid-bg"></div></div>
+<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7c8cff"/><stop offset="1" stop-color="#3ee0c4"/></linearGradient></defs></svg>
+
+<nav>
+  <div class="wrap">
+    <a class="logo" href="/"><span class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h5l3-6 3 12 3-6h4"/></svg></span>FixFlow</a>
     <div class="nav-links">
-      <a href="#how" class="hide-sm">How it works</a>
-      <a href="/docs">API</a>
+      <a href="#board" class="hide">Issue board</a>
+      <a href="#how" class="hide">How it works</a>
+      <a href="#results" class="hide">Results</a>
       <a href="https://github.com/SuchitaMalkari/fixflow" target="_blank" rel="noopener">GitHub</a>
     </div>
-  </nav>
+  </div>
+</nav>
 
+<main class="wrap">
   <header class="hero">
-    <span class="eyebrow">● AI agent · RAG · MCP</span>
-    <h1>IT support that knows <em>when not to guess.</em></h1>
-    <p class="lede">Describe a laptop problem the way a real person would. FixFlow finds the fix, checks the warranty, and decides: answer it, open a ticket for the right team, or hand it to a human.</p>
+    <h1 class="rise d2">IT support that knows <span class="grad">when not to guess.</span></h1>
+    <p class="lede rise d3">Describe a laptop problem the way a real person would. Watch FixFlow search the manuals, check the warranty, and decide: answer it, open a ticket, or hand it to a human.</p>
+    <div class="cta rise d4">
+      <a class="btn btn-primary" href="#demo">Try it now <span class="arrow">→</span></a>
+    </div>
+    <div class="ticker rise d5" aria-hidden="true"><div class="track" id="track"></div></div>
   </header>
 
-  <div class="grid">
-    <div class="card console">
-      <label class="lbl" for="text">What's going on?</label>
-      <textarea id="text" placeholder="e.g. my laptop is plugged in but the battery is stuck at 80%"></textarea>
+  <div class="demo rise d5" id="demo">
+    <div class="card spot console">
+      <label class="lbl" for="text">What's going on with your laptop?</label>
+      <textarea id="text"></textarea>
       <div class="row">
-        <div class="serial">
-          <label class="lbl" for="serial">Device serial (optional)</label>
-          <input id="serial" placeholder="PF3K9X21" maxlength="20">
+        <div class="device">
+          <label class="lbl" for="device">Your laptop</label>
+          <select id="device">
+            <option value="">I'm not sure</option>
+            <option value="PF3K9X21">AeroBook 14 Gen 3 (premium plan)</option>
+            <option value="NV5T1R43">Vector 15 Pro (premium plan)</option>
+            <option value="PF7Q2M88">AeroBook 14 Gen 3 (warranty expired)</option>
+          </select>
+          <p class="hint">At work, IT already knows which laptop you were given.</p>
         </div>
-        <button class="go" id="go">Triage →</button>
+        <button class="btn btn-primary" id="go">Get help <span class="arrow">→</span></button>
       </div>
-      <div class="chips-lbl">Try an example</div>
+      <div class="chips-lbl">Or try one</div>
       <div class="chips" id="chips"></div>
-      <p class="note">Demo serials: PF3K9X21 (premium, in warranty) · PF7Q2M88 (expired) · NV5T1R43 (premium)</p>
     </div>
 
-    <div class="card result" id="result" aria-live="polite">
-      <div class="empty">
-        <div>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h5l3-6 3 12 3-6h2"/></svg>
-          <div>The agent's decision, reasons and full trace<br>will appear here.</div>
-        </div>
-      </div>
+    <div class="card spot panel">
+      <div class="panel-head"><b>Agent pipeline</b><span class="status" id="status"><i></i><span>idle</span></span></div>
+      <div class="pipe" id="pipe"><div class="beam" id="beam"></div></div>
+      <div class="term" id="term"><div class="ln"><span class="p">$</span> waiting for a request <span class="caret"></span></div></div>
+      <div class="result" id="result" aria-live="polite"></div>
     </div>
   </div>
 
+  <section class="block" id="board">
+    <div class="sec-head reveal"><div class="kicker">Live issue board</div><h2>Everything people have reported.</h2><p>Every request is saved to the database. Click any report to see exactly how the AI handled it.</p></div>
+    <div class="board reveal">
+      <div class="card spot">
+        <div class="tiles">
+          <div class="tile"><span>Total requests</span><b id="s-total">0</b></div>
+          <div class="tile t-ok"><span>Self-served</span><b id="s-self_serve">0</b></div>
+          <div class="tile t-warn"><span>Tickets</span><b id="s-ticket">0</b></div>
+          <div class="tile t-bad"><span>Escalated</span><b id="s-escalate">0</b></div>
+        </div>
+        <h3>Top issue types</h3>
+        <div class="bars" id="bars"></div>
+      </div>
+      <div class="card spot">
+        <div class="feed-head"><b>Recent reports</b><span class="status live" id="feed-status"><i></i><span>live</span></span></div>
+        <p class="feed-sub">Click a report to see the AI's reasoning.</p>
+        <ul class="feed" id="feed"></ul>
+        <p class="privacy">Public demo: please don't type personal information. Data resets when the free server restarts.</p>
+      </div>
+    </div>
+  </section>
+
   <section class="block" id="how">
-    <h2 class="sec">How it decides</h2>
-    <p class="sub">The LLM handles language. Plain, testable code makes the final call, and safety rules sit outside the model so it can only become more careful.</p>
-    <div class="steps">
-      <div class="card step"><b>Retrieve</b><span>BM25 search, built from scratch, over the troubleshooting articles.</span></div>
-      <div class="card step"><b>Triage</b><span>Category, urgency and confidence as schema-validated JSON.</span></div>
-      <div class="card step"><b>Check</b><span>Warranty and plan looked up by serial number.</span></div>
-      <div class="card step"><b>Decide</b><span>Safety, security, low confidence → a person. Damage or outages → a ticket.</span></div>
-      <div class="card step"><b>Explain</b><span>Answer with citations, plus a trace of every step.</span></div>
-    </div>
+    <div class="sec-head reveal"><div class="kicker">How it decides</div><h2>The model reads. The code decides.</h2><p>The LLM handles language. Plain, testable code makes the final call, and safety rules sit outside the model so it can only become more careful.</p></div>
+    <div class="steps" id="steps"></div>
   </section>
 
-  <section class="block">
-    <h2 class="sec">Measured, not assumed</h2>
-    <p class="sub">50 hand-labeled tickets: 20 for tuning, 30 held out and run once. CI fails the build if quality drops.</p>
+  <section class="block" id="results">
+    <div class="sec-head reveal"><div class="kicker">Measured, not assumed</div><h2>Tested on tickets it never saw.</h2><p>50 hand-labeled tickets: 20 for tuning, 30 held out and run once. CI fails the build if quality drops.</p></div>
     <div class="stats">
-      <div class="card stat"><b>100%</b><span>correct action on the held-out set</span></div>
-      <div class="card stat"><b>90%</b><span>correct category</span></div>
-      <div class="card stat"><b>2 / 2</b><span>safety cases escalated</span></div>
-      <div class="card stat"><b>35</b><span>automated tests</span></div>
+      <div class="card spot stat reveal"><b data-count="100" data-suffix="%">0%</b><span>correct action on the held-out set</span></div>
+      <div class="card spot stat reveal"><b data-count="90" data-suffix="%">0%</b><span>correct category</span></div>
+      <div class="card spot stat reveal"><b data-count="2" data-suffix=" / 2">0 / 2</b><span>safety cases escalated</span></div>
+      <div class="card spot stat reveal"><b data-count="39">0</b><span>automated tests in CI</span></div>
     </div>
-    <p class="note">The test set is small and synthetic, so treat these numbers as a sanity check. Every miss is listed in the repo.</p>
+    <p class="fine reveal">The test set is small and synthetic, so treat these numbers as a sanity check. Every miss is listed in the repo.</p>
   </section>
+</main>
 
-  <footer>
-    <span>Built by Suchita Malkari · Python, FastAPI, MCP, Docker</span>
-    <span><a href="https://github.com/SuchitaMalkari/fixflow" target="_blank" rel="noopener">Source on GitHub</a> · <a href="/docs">API docs</a></span>
-  </footer>
-</div>
+<footer><div class="wrap"><span>Built by Suchita Malkari · Python · FastAPI · MCP · Docker</span><span><a href="https://github.com/SuchitaMalkari/fixflow" target="_blank" rel="noopener">Source on GitHub</a> · <a href="/docs">API docs</a></span></div></footer>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Report details">
+  <div class="d-head"><b>How the AI handled this</b><button class="x" id="close" title="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="d-body" id="dbody"></div>
+</aside>
 
 <script>
-const EXAMPLES = [
-  { label: "Laptop is smoking", text: "There's smoke coming out near the charging port", serial: "PF7Q2M88" },
-  { label: "Stuck at 80%", text: "My laptop is plugged in but the battery stays at 80% and never reaches 100", serial: "PF3K9X21" },
-  { label: "Cracked screen", text: "I dropped my laptop and the screen is cracked in the corner", serial: "PF3K9X21" },
-  { label: "Office Wi-Fi down", text: "Nobody on the 3rd floor can connect to the VPN since this morning", serial: "" },
-  { label: "Install Tableau", text: "Can I get Tableau installed? It's not in the company portal", serial: "NV5T1R43" },
-  { label: "Vague", text: "pc not working", serial: "" },
-];
-const LABELS = {
-  self_serve: { title: "Self-serve answer", sub: "A knowledge-base article covers this.", icon: "✓" },
-  ticket: { title: "Ticket opened", sub: "Routed to the right team.", icon: "→" },
-  escalate: { title: "Handed to a person", sub: "Not something to automate.", icon: "!" },
-};
-const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const pretty = (s) => String(s).replace(/_/g, " ");
+(() => {
+  const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const $ = (id) => document.getElementById(id);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, REDUCED ? 0 : ms));
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const pretty = (s) => { const t = String(s ?? "").replace(/_/g, " ").replace(/^it /i, "IT "); return t.charAt(0).toUpperCase() + t.slice(1); };
+  const OUTCOME = { self_serve: "Self-served", ticket: "Ticket opened", escalate: "Escalated" };
 
-const chips = $("chips");
-EXAMPLES.forEach((ex) => {
-  const b = document.createElement("button");
-  b.className = "chip"; b.type = "button"; b.textContent = ex.label;
-  b.onclick = () => { $("text").value = ex.text; $("serial").value = ex.serial; run(); };
-  chips.appendChild(b);
-});
+  const ICONS = {
+    retrieve: '<path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm9 16-4.3-4.3"/>',
+    triage: '<path d="M12 3v3m0 12v3M4.2 7.5l2.6 1.5m10.4 6 2.6 1.5M3 12h3m12 0h3M4.2 16.5l2.6-1.5m10.4-6 2.6-1.5"/><circle cx="12" cy="12" r="3"/>',
+    check: '<path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/>',
+    decide: '<path d="M6 3v6a6 6 0 0 0 6 6h6m0 0-3-3m3 3-3 3M6 21v-4"/>',
+    act: '<path d="M5 12l5 5L20 7"/>',
+    arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    alert: '<path d="M12 7v6M12 17h.01"/>',
+  };
+  const svg = (k, w = 2) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>`;
+  const STEPS = [
+    { key: "retrieve", label: "Retrieve", prefix: "retrieve", desc: "BM25 search, built from scratch, ranks the troubleshooting articles." },
+    { key: "triage", label: "Triage", prefix: "triage", desc: "Category, urgency and confidence come back as schema-validated JSON." },
+    { key: "check", label: "Check", prefix: "check_warranty", desc: "The laptop's warranty and plan are looked up." },
+    { key: "decide", label: "Decide", prefix: "decide", desc: "Safety, security or low confidence go to a person. Damage or outages become tickets." },
+    { key: "act", label: "Act", prefix: "act", desc: "Open the ticket, write the reply with citations, and log a full trace." },
+  ];
 
-async function run() {
-  const text = $("text").value.trim();
-  if (!text) { $("text").focus(); return; }
-  const serial = $("serial").value.trim() || null;
-  const out = $("result"), btn = $("go");
-  btn.disabled = true;
-  out.innerHTML = '<div class="loading"><div class="spinner"></div><div>Triaging…<br><small>The free server may need up to 50 seconds to wake up on the first request.</small></div></div>';
-  try {
-    const res = await fetch("/triage", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, serial }) });
-    if (!res.ok) throw new Error("The server answered " + res.status);
-    render(await res.json());
-  } catch (e) {
-    out.innerHTML = '<div class="err">Something went wrong: ' + esc(e.message) + '. If the server was asleep, try again in a few seconds.</div>';
-  } finally {
-    btn.disabled = false;
+  const pipe = $("pipe");
+  STEPS.forEach((s) => pipe.insertAdjacentHTML("beforeend", `<div class="node"><div class="dot">${svg(s.key)}</div><span>${s.label}</span></div>`));
+  $("steps").innerHTML = STEPS.map((s, i) => `<div class="card spot step reveal" style="transition-delay:${i * 80}ms"><div class="ic">${svg(s.key)}</div><div class="n">0${i + 1}</div><b>${s.label}</b><p>${s.desc}</p></div>`).join("");
+
+  // ticker
+  const TICK = [
+    ["battery stuck at 80%", "self_serve"], ["smoke from the charging port", "escalate"], ["cracked screen after a drop", "ticket"],
+    ["wifi drops every 10 minutes", "self_serve"], ["whole floor lost VPN", "ticket"], ["sign-ins I don't recognise", "escalate"],
+    ["fan grinding noise", "ticket"], ["blue screen when opening Teams", "self_serve"], ["coffee on the keyboard", "ticket"],
+    ["forgot my password", "self_serve"], ["case is swelling up", "escalate"], ["need VS Code installed", "self_serve"],
+  ];
+  const tkHTML = TICK.map(([t, a]) => `<span class="tk">${esc(t)}<span class="pill p-${a}">${esc(OUTCOME[a])}</span></span>`).join("");
+  $("track").innerHTML = tkHTML + tkHTML;
+
+  // example chips
+  const EXAMPLES = [
+    { label: "Laptop is smoking", text: "There's smoke coming out near the charging port", serial: "PF7Q2M88" },
+    { label: "Stuck at 80%", text: "My laptop is plugged in but the battery stays at 80% and never reaches 100", serial: "PF3K9X21" },
+    { label: "Cracked screen", text: "I dropped my laptop and the screen is cracked in the corner", serial: "PF3K9X21" },
+    { label: "Office Wi-Fi down", text: "Nobody on the 3rd floor can connect to the VPN since this morning", serial: "" },
+    { label: "Account hacked?", text: "I see sign-ins on my account from another country that weren't me", serial: "" },
+    { label: "Vague request", text: "pc not working", serial: "" },
+  ];
+  EXAMPLES.forEach((ex) => {
+    const b = document.createElement("button");
+    b.className = "chip"; b.type = "button"; b.textContent = ex.label;
+    b.onclick = () => { $("text").value = ex.text; $("device").value = ex.serial; run(); };
+    $("chips").appendChild(b);
+  });
+
+  // typing placeholder
+  const ta = $("text");
+  const PH = ["my laptop won't charge past 80%…", "the screen flickers when I scroll…", "wifi drops every 10 minutes…", "I spilled coffee on the keyboard…", "there's a burning smell from the vents…"];
+  let phI = 0, phJ = 0, phDel = false;
+  (function typePH() {
+    if (REDUCED) { ta.placeholder = "e.g. " + PH[0]; return; }
+    if (document.activeElement !== ta && !ta.value) {
+      const w = PH[phI];
+      phJ += phDel ? -1 : 1;
+      ta.placeholder = "e.g. " + w.slice(0, phJ);
+      if (!phDel && phJ === w.length) { phDel = true; return setTimeout(typePH, 1600); }
+      if (phDel && phJ === 0) { phDel = false; phI = (phI + 1) % PH.length; }
+    }
+    setTimeout(typePH, phDel ? 28 : 55);
+  })();
+
+  // mouse spotlight on cards
+  document.addEventListener("pointermove", (e) => {
+    document.querySelectorAll(".card.spot").forEach((c) => {
+      const r = c.getBoundingClientRect();
+      c.style.setProperty("--mx", e.clientX - r.left + "px");
+      c.style.setProperty("--my", e.clientY - r.top + "px");
+    });
+  }, { passive: true });
+
+  // 3D tilt
+  if (!REDUCED && matchMedia("(hover: hover)").matches) {
+    document.querySelectorAll(".step, .stat").forEach((el) => {
+      el.classList.add("tilt");
+      el.addEventListener("pointermove", (e) => {
+        const r = el.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+        el.style.transform = `perspective(700px) rotateX(${-y * 8}deg) rotateY(${x * 10}deg) translateY(-4px)`;
+      });
+      el.addEventListener("pointerleave", () => (el.style.transform = ""));
+    });
   }
-}
 
-function render(r) {
-  const L = LABELS[r.action] || LABELS.ticket;
-  const conf = Math.round((r.confidence || 0) * 100);
-  const w = r.warranty;
-  let html = `
-    <div class="decision d-${esc(r.action)}">
-      <div class="icon">${L.icon}</div>
-      <div><h2>${L.title}</h2><p>${r.ticket_id ? "Ticket " + esc(r.ticket_id) + " · " : ""}${esc(L.sub)}</p></div>
-    </div>
-    <div class="facts">
-      <div class="fact"><span>Category</span><b>${esc(pretty(r.category))}</b></div>
-      <div class="fact"><span>Team</span><b>${esc(pretty(r.team))}</b></div>
-      <div class="fact"><span>Urgency</span><b>${esc(r.urgency)}</b></div>
-      <div class="fact"><span>Confidence</span><b>${conf}%</b><div class="meter"><i style="width:${conf}%"></i></div></div>
-    </div>
-    <h3>Why</h3>
-    <ul class="reasons">${(r.reasons || []).map((x) => "<li>" + esc(x) + "</li>").join("")}</ul>
-    <h3>Reply to the user</h3>
-    <div class="answer">${esc(r.answer)}</div>
-    <div class="tags">
-      ${(r.citations || []).map((c) => '<span class="tag">' + esc(c) + "</span>").join("")}
-      ${w ? '<span class="tag">' + esc(w.model) + " · " + (w.in_warranty ? "in warranty" : "out of warranty") + "</span>" : ""}
-    </div>
-    <details><summary>Show the agent's trace</summary>
-      <ul class="trace">${(r.trace || []).map((t) => { const i = t.indexOf(":"); return "<li><b>" + esc(t.slice(0, i)) + "</b>" + esc(t.slice(i)) + "</li>"; }).join("")}</ul>
-    </details>`;
-  $("result").innerHTML = html;
-}
+  // scroll reveal + count-up
+  const io = new IntersectionObserver((entries) => entries.forEach((en) => {
+    if (!en.isIntersecting) return;
+    en.target.classList.add("in");
+    en.target.querySelectorAll("[data-count]").forEach(countUp);
+    io.unobserve(en.target);
+  }), { threshold: 0.2 });
+  document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+  function countUp(el) {
+    const end = +el.dataset.count, suf = el.dataset.suffix || "";
+    const t0 = performance.now(), dur = REDUCED ? 1 : 1400;
+    (function f(t) {
+      const p = Math.min(1, (t - t0) / dur);
+      el.textContent = Math.round(end * (1 - Math.pow(1 - p, 3))) + suf;
+      if (p < 1) requestAnimationFrame(f);
+    })(t0);
+  }
 
-$("go").onclick = run;
-$("text").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) run(); });
+  // ---------- the live run ----------
+  const term = $("term"), beam = $("beam"), statusEl = $("status"), result = $("result");
+  const nodes = () => [...pipe.querySelectorAll(".node")];
+  const setStatus = (txt, live) => { statusEl.classList.toggle("live", !!live); statusEl.lastElementChild.textContent = txt; };
+  const log = (html) => { term.querySelector(".caret")?.remove(); term.insertAdjacentHTML("beforeend", `<div class="ln">${html}</div>`); term.scrollTop = term.scrollHeight; };
+  const setBeam = (i) => { beam.style.width = `${(i / 4) * 80}%`; };
+  function reset() { nodes().forEach((n) => (n.className = "node")); setBeam(0); term.innerHTML = ""; result.className = "result"; result.innerHTML = ""; }
+
+  let busy = false, lastText = "";
+  async function run(preset) {
+    const text = (typeof preset === "string" ? preset : ta.value).trim();
+    if (!text) { ta.focus(); return; }
+    if (busy) return;
+    busy = true; $("go").disabled = true; lastText = text;
+    const serial = $("device").value || null;
+    const deviceName = serial ? $("device").selectedOptions[0].textContent.replace(/\s*\(.*\)/, "") : "";
+    reset();
+    setStatus("running", true);
+    log(`<span class="p">$</span> fixflow triage <span class="k">"${esc(text.length > 60 ? text.slice(0, 57) + "…" : text)}"</span>${serial ? " --device " + esc(deviceName) : ""}`);
+    const ns = nodes();
+    ns[0].classList.add("run");
+    const wake = setTimeout(() => log('<span class="p">…</span> waking the free server, this can take up to 50 seconds'), 3500);
+    let data;
+    try {
+      const res = await fetch("/triage", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, serial }) });
+      if (!res.ok) throw new Error("server answered " + res.status);
+      data = await res.json();
+    } catch (e) {
+      clearTimeout(wake);
+      ns[0].className = "node";
+      setStatus("error", false);
+      result.className = "result show";
+      result.innerHTML = `<div class="err">Something went wrong (${esc(e.message)}). If the server was asleep, try again in a few seconds.</div>`;
+      busy = false; $("go").disabled = false;
+      return;
+    }
+    clearTimeout(wake);
+
+    const trace = data.trace || [];
+    for (let i = 0; i < STEPS.length; i++) {
+      const s = STEPS[i];
+      ns[i].className = "node run";
+      await sleep(i === 0 ? 250 : 420);
+      const line = trace.find((t) => t.startsWith(s.prefix));
+      if (line) {
+        const k = line.indexOf(":");
+        log(`<span class="k">${esc(s.label.toLowerCase())}</span><span class="p"> ›</span> ${esc(readable(s.prefix, line.slice(k + 1).trim()))}`);
+        ns[i].className = "node done";
+      } else {
+        log(`<span class="k">${esc(s.label.toLowerCase())}</span><span class="p"> › skipped (laptop not selected)</span>`);
+        ns[i].className = "node skip";
+      }
+      setBeam(i);
+    }
+    log(`<span class="p">$</span> done <span class="caret"></span>`);
+    setStatus(OUTCOME[data.action].toLowerCase(), false);
+    await sleep(150);
+    render(data);
+    loadBoard();
+    busy = false; $("go").disabled = false;
+  }
+
+  const LABELS = {
+    self_serve: { title: "Here's how to fix it", sub: "A help article covers this.", icon: "act" },
+    ticket: { title: "Ticket opened", sub: "Routed to the right team.", icon: "arrow" },
+    escalate: { title: "Handed to a person", sub: "This is not something to automate.", icon: "alert" },
+  };
+
+  function render(r) {
+    const L = LABELS[r.action] || LABELS.ticket;
+    const conf = Math.round((r.confidence || 0) * 100);
+    const w = r.warranty;
+    result.className = "result show";
+    result.innerHTML = `
+      <div class="decision d-${esc(r.action)}">
+        <div class="icon">${svg(L.icon, 2.6)}</div>
+        <div><h2>${L.title}</h2><p>${r.ticket_id ? "Ticket " + esc(r.ticket_id) + " · " : ""}${esc(L.sub)}</p></div>
+      </div>
+      <div class="facts">
+        <div class="fact" style="animation-delay:.15s"><span>Category</span><b>${esc(pretty(r.category))}</b></div>
+        <div class="fact" style="animation-delay:.22s"><span>Team</span><b>${esc(pretty(r.team))}</b></div>
+        <div class="fact" style="animation-delay:.29s"><span>Urgency</span><b>${esc(pretty(r.urgency))}</b></div>
+        <div class="fact ring" style="animation-delay:.36s"><svg viewBox="0 0 46 46"><circle class="track" cx="23" cy="23" r="18"/><circle class="val" id="ringv" cx="23" cy="23" r="18"/></svg><div><span>Confidence</span><b id="confv">0%</b></div></div>
+      </div>
+      <h3>Why</h3>
+      <ul class="reasons">${(r.reasons || []).map((x, i) => `<li style="animation-delay:${0.45 + i * 0.1}s">${esc(x)}</li>`).join("")}</ul>
+      <h3>Reply to the user</h3>
+      <div class="answer" id="ans"></div>
+      <div class="tags">
+        ${(r.citations || []).map((c) => `<span class="tag">Help article ${esc(c)}</span>`).join("")}
+        ${w ? `<span class="tag">${esc(w.model)} · ${w.in_warranty ? "in warranty" : "warranty expired"}</span>` : ""}
+      </div>
+      ${r.action === "self_serve" ? `<div class="feedback" id="fb"><span>Did that fix it?</span><button class="btn btn-ghost" id="fb-yes">Yes, it's fixed</button><button class="btn btn-ghost" id="fb-no">No, still not working</button></div>` : ""}`;
+    requestAnimationFrame(() => {
+      const ring = $("ringv");
+      if (ring) ring.style.strokeDashoffset = String(113 - (113 * conf) / 100);
+      countTo($("confv"), conf);
+    });
+    typeAnswer($("ans"), r.answer || "");
+    if (r.action === "self_serve") {
+      $("fb-yes").onclick = () => { $("fb").innerHTML = '<span class="done">Great. Marked as resolved, no ticket needed.</span>'; };
+      $("fb-no").onclick = () => { ta.value = lastText + ". I already tried these steps and it is still not working."; run(); };
+    }
+  }
+
+  function countTo(el, end) {
+    const t0 = performance.now(), dur = REDUCED ? 1 : 1100;
+    (function f(t) {
+      const p = Math.min(1, (t - t0) / dur);
+      el.textContent = Math.round(end * (1 - Math.pow(1 - p, 3))) + "%";
+      if (p < 1) requestAnimationFrame(f);
+    })(t0);
+  }
+  async function typeAnswer(el, text) {
+    if (REDUCED) { el.textContent = text; return; }
+    await sleep(500);
+    const step = Math.max(2, Math.ceil(text.length / 120));
+    for (let i = 0; i <= text.length; i += step) { el.textContent = text.slice(0, i); await new Promise((r) => requestAnimationFrame(r)); }
+    el.textContent = text;
+  }
+
+  // Turn the agent's raw trace lines into plain sentences.
+  function readable(key, detail) {
+    if (key === "check_warranty") {
+      if (/not found/.test(detail)) return "Laptop not found";
+      const g = (f) => (detail.match(new RegExp("'" + f + "': '?([^,'}]+)")) || [])[1] || "";
+      return `${g("model")} · ${g("plan")} plan · ${g("in_warranty") === "True" ? "in warranty until " : "warranty ended "}${g("warranty_end")}`;
+    }
+    if (key === "triage") return detail.replace(/category=(\S+)/, (m, c) => "issue: " + pretty(c).toLowerCase()).replace(/ urgency=(\S+)/, " · urgency: $1").replace(/ confidence=([\d.]+)/, (m, c) => " · confidence " + Math.round(c * 100) + "%");
+    if (key === "retrieve") return "best matches " + detail;
+    if (key === "decide") return detail.replace(/^(\w+) -> (\w+) \((.*)\)$/, (m, a, t, why) => `${(OUTCOME[a] || a).toLowerCase()} → ${pretty(t).toLowerCase()} · ${why}`);
+    if (key === "act") return detail === "no ticket needed" ? "answered directly, no ticket needed" : "created " + detail;
+    return detail;
+  }
+
+  // ---------- issue board ----------
+  const seen = new Set();
+  let firstLoad = true, recentRows = [];
+  const ago = (iso) => {
+    const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return "just now";
+    if (s < 3600) return Math.floor(s / 60) + "m ago";
+    if (s < 86400) return Math.floor(s / 3600) + "h ago";
+    return Math.floor(s / 86400) + "d ago";
+  };
+  function animateNum(el, end) {
+    const start = +el.textContent || 0;
+    if (start === end) return;
+    const t0 = performance.now(), dur = REDUCED ? 1 : 900;
+    (function f(t) {
+      const p = Math.min(1, (t - t0) / dur);
+      el.textContent = Math.round(start + (end - start) * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(f);
+    })(t0);
+  }
+  async function loadBoard() {
+    try {
+      const res = await fetch("/activity?limit=25");
+      if (!res.ok) throw new Error(res.status);
+      const { stats, recent } = await res.json();
+      recentRows = recent;
+      animateNum($("s-total"), stats.total);
+      ["self_serve", "ticket", "escalate"].forEach((k) => animateNum($("s-" + k), stats.by_action[k] || 0));
+      const cats = Object.entries(stats.by_category).slice(0, 6);
+      const max = Math.max(1, ...cats.map(([, n]) => n));
+      $("bars").innerHTML = cats.map(([c, n]) => `<div class="bar"><span>${esc(pretty(c))}</span><div class="fill"><i data-w="${(n / max) * 100}"></i></div><b>${n}</b></div>`).join("");
+      requestAnimationFrame(() => document.querySelectorAll("#bars i").forEach((i) => (i.style.width = i.dataset.w + "%")));
+      $("feed").innerHTML = recent.map((r) => {
+        const isNew = !firstLoad && !seen.has(r.id);
+        seen.add(r.id);
+        return `<li class="${isNew ? "new" : ""}" data-id="${esc(r.id)}"><span class="pill p-${esc(r.action)}">${esc(OUTCOME[r.action] || r.action)}</span>
+          <div><div class="txt">${esc(r.text)}</div><div class="meta">${esc(pretty(r.category))} · ${esc(pretty(r.team))}${r.ticket_id ? " · " + esc(r.ticket_id) : ""}</div></div>
+          <span class="when">${ago(r.created_at)}</span></li>`;
+      }).join("") || '<li><span></span><div class="meta">No reports yet. Try the agent above.</div></li>';
+      firstLoad = false;
+      $("feed-status").classList.add("live");
+    } catch {
+      $("feed-status").classList.remove("live");
+    }
+  }
+
+  // ---------- report details drawer ----------
+  const STEP_NAMES = { retrieve: "Searched the help articles", triage: "Understood the request", check_warranty: "Checked the warranty", decide: "Made the decision", act: "Took action" };
+  $("feed").addEventListener("click", (e) => {
+    const li = e.target.closest("li[data-id]");
+    if (li) openDrawer(recentRows.find((r) => String(r.id) === li.dataset.id));
+  });
+  function openDrawer(r) {
+    if (!r) return;
+    const conf = Math.round((r.confidence || 0) * 100);
+    const trace = (r.trace || []).map((t, i) => {
+      const k = t.indexOf(":"), key = t.slice(0, k).replace(/\[.*\]/, "");
+      return `<li style="animation-delay:${0.1 + i * 0.08}s"><b>${esc(STEP_NAMES[key] || key)}</b><span>${esc(readable(key, t.slice(k + 1).trim()))}</span></li>`;
+    }).join("");
+    $("dbody").innerHTML = `
+      <h4>Customer said</h4><div class="quote">${esc(r.text)}</div>
+      <h4>Outcome</h4>
+      <div class="d-meta">
+        <div><span>Decision</span><b><span class="pill p-${esc(r.action)}">${esc(OUTCOME[r.action] || r.action)}</span></b></div>
+        <div><span>Ticket</span><b>${r.ticket_id ? esc(r.ticket_id) : "None needed"}</b></div>
+        <div><span>Issue type</span><b>${esc(pretty(r.category))}</b></div>
+        <div><span>Team</span><b>${esc(pretty(r.team))}</b></div>
+        <div><span>Urgency</span><b>${esc(pretty(r.urgency))}</b></div>
+        <div><span>AI confidence</span><b>${conf}%</b><div class="conf"><i style="width:${conf}%"></i></div></div>
+      </div>
+      <h4>Why the AI decided this</h4>
+      <ul class="reasons">${(r.reasons || []).map((x) => `<li>${esc(x)}</li>`).join("") || "<li>No reasons recorded.</li>"}</ul>
+      <h4>What the agent did, step by step</h4>
+      <ul class="timeline">${trace || "<li><span>No trace recorded.</span></li>"}</ul>`;
+    $("drawer").classList.add("on"); $("scrim").classList.add("on");
+  }
+  const closeDrawer = () => { $("drawer").classList.remove("on"); $("scrim").classList.remove("on"); };
+  $("close").onclick = closeDrawer; $("scrim").onclick = closeDrawer;
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+
+  loadBoard();
+  setInterval(loadBoard, 15000);
+  $("go").onclick = () => run();
+  ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) run(); });
+})();
 </script>
 </body>
 </html>

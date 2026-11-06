@@ -33,3 +33,13 @@ def test_catalog(settings):
     assert [a.name for a in catalog.find_in_text("need VS Code and python")] == ["Visual Studio Code", "Python"]
     assert catalog.find_in_text("install Tableau") == []
     assert catalog.find_in_text("legitimate") == []  # 'git' must match whole words only
+
+
+def test_request_log_and_stats(store):
+    store.log_request(text="a", serial=None, action="ticket", category="display", team="hardware_repair",
+                      urgency="medium", confidence=0.8, ticket_id="FF-1")
+    store.log_request(text="b", serial=None, action="escalate", category="safety_hazard", team="safety_response",
+                      urgency="critical", confidence=1.0, ticket_id="FF-2")
+    assert [r["text"] for r in store.recent_requests()] == ["b", "a"]
+    stats = store.request_stats()
+    assert stats["total"] == 2 and stats["by_action"] == {"ticket": 1, "escalate": 1}

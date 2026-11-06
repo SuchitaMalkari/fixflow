@@ -1,6 +1,6 @@
 # FixFlow: AI agent for IT-support triage
 
-[![CI](https://github.com/SuchitaMalkari/fixflow/actions/workflows/ci.yml/badge.svg)](https://github.com/SuchitaMalkari/fixflow/actions/workflows/ci.yml)
+[![CI](https://github.com/YOUR_GITHUB_USERNAME/fixflow/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_GITHUB_USERNAME/fixflow/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -11,6 +11,8 @@ FixFlow reads a support request written in plain language, such as *"my laptop i
 - **Escalate:** hand it to a person when it is a safety or security risk, the user asks for a human, data is at risk, or the agent is not confident.
 
 It also checks the device's warranty and explains every decision in a step-by-step trace.
+
+**Live demo: [fixflow-nehm.onrender.com](https://fixflow-nehm.onrender.com)**: type a problem and watch the agent's pipeline run step by step, then click any report on the live issue board to see why the AI decided what it did. (Free hosting: the first visit can take up to 50 seconds to wake up.)
 
 **Measured on a held-out test set of 30 labeled tickets:** 100% correct action, 90% correct category, and every safety case escalated (2 of 2). [Full results](#evaluation).
 
@@ -45,9 +47,10 @@ Trace:
 | **Agent workflow** | retrieve → triage → check warranty → decide → act → explain, with a full trace | `fixflow/agent.py` |
 | **Tools** | Warranty lookup, ticket creation, human escalation (SQLite), approved-software catalog | `fixflow/tools.py`, `fixflow/catalog.py` |
 | **MCP server** | Exposes the tools to any MCP client, such as Claude Desktop | `fixflow/mcp_server.py` |
-| **REST API** | FastAPI service with interactive docs at `/docs` | `fixflow/api.py` |
+| **REST API** | FastAPI service: `/triage`, `/activity` (issue board), `/tickets`, docs at `/docs` | `fixflow/api.py` |
+| **Demo web app** | Animated single-file front end: live agent pipeline, streaming trace, issue board fed from the database | `fixflow/static/index.html` |
 | **Evaluation** | 50 labeled tickets split into dev and held-out test sets; CI fails if quality drops | `fixflow/evals.py`, `data/eval/` |
-| **Production basics** | 35 tests, fake LLM clients, Docker image with health check, GitHub Actions CI | `tests/`, `Dockerfile`, `.github/` |
+| **Production basics** | 39 tests, fake LLM clients, Docker image with health check, GitHub Actions CI | `tests/`, `Dockerfile`, `.github/` |
 
 ## Architecture
 
@@ -71,7 +74,7 @@ flowchart LR
 ## Quick start
 
 ```bash
-git clone https://github.com/SuchitaMalkari/fixflow.git
+git clone https://github.com/YOUR_GITHUB_USERNAME/fixflow.git
 cd fixflow
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
@@ -89,6 +92,17 @@ export FIXFLOW_PROVIDER=anthropic   # or openai
 export ANTHROPIC_API_KEY=sk-...      # or OPENAI_API_KEY
 python -m fixflow "my screen flickers when I scroll"
 ```
+
+**Free option (Groq):** Groq offers a free plan with an OpenAI-compatible API. Create a key at console.groq.com, then:
+
+```bash
+export FIXFLOW_PROVIDER=openai
+export OPENAI_BASE_URL=https://api.groq.com/openai/v1
+export OPENAI_API_KEY=gsk_...                 # your Groq key
+export FIXFLOW_MODEL=openai/gpt-oss-120b
+```
+
+If the free limit is hit or the API fails, FixFlow falls back to the offline triager automatically, and the trace says so.
 
 With Docker:
 
@@ -156,6 +170,7 @@ fixflow/
   catalog.py      approved-software catalog
   evals.py        evaluation harness
   api.py          FastAPI app
+  static/         demo web app (index.html)
   mcp_server.py   MCP server
 data/
   kb/             12 troubleshooting articles (Markdown)
